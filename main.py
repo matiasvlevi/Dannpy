@@ -30,6 +30,10 @@ class Dann:
                 print("outputs : "+str(self.Layers[i].rows)+"  " + str(self.aFunc[i-1]))
             else:
                 print("layer   : "+str(self.Layers[i].rows)+"  " + str(self.aFunc[i-1]))
+        for i in range(len(self.weights)):
+            self.weights[i].log()
+        for i in range(len(self.gradients)):
+            self.gradients[i].log()
 
     def addHiddenLayer(self,size,act):
         layer = Matrix(size,1)
@@ -56,9 +60,17 @@ class Dann:
 
             self.errors.insert(i, Matrix(self.Layers[i+1].rows,1))
             self.gradients.insert(i,Matrix(self.Layers[i+1].rows,1))
+
             if len(self.aFunc)-1 < i:
                 self.aFunc.insert(i,"sigmoid")
                 self.aFunc_d.insert(i,"sigmoid_d")
+    def calcMeanLoss(self,arr,t):
+        sum = 0
+        ans = 0
+        for i in range(self.o):
+            sum += np.power(arr[i] - t[i],2)
+        ans = sum/self.o
+        return ans
     def feedForward(self,inputs):
         self.Layers[0] = Matrix.fromArray(inputs)
 
@@ -66,9 +78,52 @@ class Dann:
             self.Layers[i+1] = Matrix.multiply(self.weights[i],self.Layers[i])
             self.Layers[i+1].add(self.biases[i])
             self.Layers[i+1].map(self.aFunc[i])
+        self.outs = []
         for i in range(self.o):
             self.outs.insert(i,Matrix.toArray(self.Layers[len(self.Layers)-1])[i])
         return self.outs
+    def backpropagate(self,inputs,t):
+        targets = Matrix.fromArray(t)
+
+        self.feedForward(inputs);
+        llength = len(self.Layers)-1
+        self.errors[len(self.errors)-1] = Matrix.subtract(targets, self.Layers[llength])
+        glength = len(self.gradients)-1
+        funclength = len(self.aFunc)-1
+        elength = len(self.errors)-1
+        self.gradients[glength] = Matrix.mapS(self.Layers[llength],self.aFunc_d[funclength])
+        self.gradients[glength].mult(self.errors[elength])
+        self.gradients[glength].mult(self.lr)
+
+        i = len(self.weights)-1
+        for x in range(i):
+
+            h_t = Matrix.transpose(self.Layers[i])
+            weights_deltas = Matrix.multiply(self.gradients[i],h_t)
+
+            self.weights[i].add(weights_deltas)
+            self.biases[i].add(self.gradients[i])
+
+            weights_t = Matrix.transpose(self.weights[i])
+            self.errors[i-1] = Matrix.multiply(weights_t,self.errors[i])
+
+            self.gradients[i-1] = Matrix.mapS(self.Layers[i], self.aFunc_d[i-1])
+
+            self.gradients[i-1].mult(self.errors[i-1])
+            self.gradients[i-1].mult(self.lr)
+
+            i-=1
+
+        i_t = Matrix.transpose(self.Layers[0])
+        weights_deltas = Matrix.multiply(self.gradients[0], i_t)
+
+        self.weights[0].add(weights_deltas)
+        self.biases[0].add(self.gradients[0])
+
+        self.loss = self.calcMeanLoss(self.outs,t)
+        self.losses.append(self.loss)
+
+
 class Matrix:
     def __init__(self,rows,cols):
         self.rows = rows
@@ -106,7 +161,16 @@ class Matrix:
             for j in range(m.cols):
                 ans.matrix[j][i] = m.matrix[i][j]
         return ans
-
+    @staticmethod
+    def mapS(m,f):
+        for i in range(m.rows):
+            for j in range(m.cols):
+                v = m.matrix[i][j]
+                possibles = globals().copy()
+                possibles.update(locals())
+                method = possibles.get(f)
+                m.matrix[i][j] = method(v)
+        return m
     def map(self,f):
         for i in range(self.rows):
             for j in range(self.cols):
@@ -126,7 +190,7 @@ class Matrix:
     @staticmethod
     def multiply(a,b):
         if a.cols != b.rows:
-            print('cols of A must be equal to rows of B...')
+            print('cols of A must be equal to rows of B...(static)')
             return 0
         else:
             ans = Matrix(a.rows,b.cols)
@@ -154,9 +218,26 @@ class Matrix:
                 ans.insert(i,m.matrix[i][0])
         return ans
     def mult(self,n):
-        for i in range(self.rows):
-            for j in range(self.cols):
-                self.matrix[i][j] *= n
+
+        if isinstance(n,Matrix):
+            if self.cols != n.rows:
+                print('cols of A must be equal to rows of B...(self):'+str(self.matrix)+" : "+str(n.matrix))
+                return 0
+            else:
+                ans = Matrix(self.rows,n.cols)
+                for i in range(ans.rows):
+                    for j in range(ans.cols):
+                        sum = 0
+                        k = 0
+                        for k in range(self.cols):
+                            sum += self.matrix[i][k] * n.matrix[k][j]
+                            ans.matrix[i][j] = sum
+                return ans
+        else:
+            for i in range(self.rows):
+                for j in range(self.cols):
+                    self.matrix[i][j] *= n
+
     def set(matrix):
         self.matrix = matrix
     def initiate(self):
@@ -180,12 +261,34 @@ def leakyRelu_d(x):
         return 1
     else:
         return 0.01
-nn = Dann(2,2)
-nn.addHiddenLayer(16,leakyRelu)
-nn.addHiddenLayer(16,leakyRelu)
-nn.makeWeights()
 
-out = nn.feedForward([0,0])
+class Data:
+    def __init__(self,inputs,targets):
+        self.inputs = inputs
+        self.targets = targets
+
+
+dataset = [];
+dataset.append(Data([1,1],[0]))
+dataset.append(Data([1,0],[1]))
+dataset.append(Data([0,1],[1]))
+dataset.append(Data([0,0],[0]))
+
+nn = Dann(2,1)
+nn.addHiddenLayer(4,leakyRelu)
+nn.makeWeights();
 nn.log();
 
-print(out)
+print(nn.feedForward([1,1]))
+print(nn.feedForward([1,0]))
+print(nn.feedForward([0,1]))
+print(nn.feedForward([0,0]))
+for e in range(100):
+    for i in range(len(dataset)):
+        nn.backpropagate(dataset[i].inputs,dataset[i].targets)
+        print(nn.loss)
+
+print(nn.feedForward([1,1]))
+print(nn.feedForward([1,0]))
+print(nn.feedForward([0,1]))
+print(nn.feedForward([0,0]))
