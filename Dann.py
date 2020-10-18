@@ -1,4 +1,5 @@
 import numpy as np
+from numba import jit, cuda
 class Dann:
     def __init__(self,i,o):
         self.i = i
@@ -82,6 +83,7 @@ class Dann:
         for i in range(self.o):
             self.outs.insert(i,Matrix.toArray(self.Layers[len(self.Layers)-1])[i])
         return self.outs
+
     def backpropagate(self,inputs,t):
         targets = Matrix.fromArray(t)
 
@@ -188,6 +190,7 @@ class Matrix:
         for i in range(l):
             m.matrix[i][0] = arr[i]
         return m
+
     @staticmethod
     def multiply(a,b):
         if a.cols != b.rows:
@@ -201,7 +204,7 @@ class Matrix:
                     k = 0
                     for k in range(a.cols):
                         sum += a.matrix[i][k] * b.matrix[k][j]
-                        ans.matrix[i][j] = sum
+                    ans.matrix[i][j] = sum
             return ans
     @staticmethod
     def subtract(a,b):
