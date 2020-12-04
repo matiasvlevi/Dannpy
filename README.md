@@ -19,7 +19,7 @@ How it works:
 
 For documentation:
 -------------------
-(Python version has a lot of depracated functions documentation is coming)
+(Python version has a lot of depracated functions documentation is coming) <br />
 https://dannjs.org
 
 JavaScript version (main):
