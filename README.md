@@ -22,7 +22,7 @@ For documentation:
 (Python version has a lot of depracated functions. Documentation is coming) <br />
 https://dannjs.org
 
-JavaScript version (main):
+JS version (main):
 ------------------
 https://github.com/matiasvlevi/Dann
 
